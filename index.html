@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRON LEGACY — LIGHT CYCLES</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+:root {
+  --c:#00f5ff;--c2:#00bcd4;--o:#ff6600;--o2:#ff9900;
+  --g:#00ff88;--g2:#00cc66;
+  --dark:#000810;--panel:#000d1a;--border:#002233;
+  --gc:0 0 8px #00f5ff,0 0 20px #00bcd4;
+  --go:0 0 8px #ff6600,0 0 20px #ff4400;
+  --gg:0 0 8px #00ff88,0 0 20px #00cc66;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:var(--dark);font-family:'Orbitron',monospace;color:var(--c);overflow:hidden;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);pointer-events:none;z-index:9999;}
+
+@keyframes pulse-c{0%,100%{text-shadow:var(--gc);}50%{text-shadow:0 0 30px #00f5ff,0 0 60px #00bcd4;}}
+@keyframes pulse-o{0%,100%{text-shadow:var(--go);}50%{text-shadow:0 0 30px #ff6600,0 0 60px #ff4400;}}
+@keyframes pulse-g{0%,100%{text-shadow:var(--gg);}50%{text-shadow:0 0 30px #00ff88,0 0 60px #00cc66;}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+@keyframes fadein{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideup{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scanpulse{0%{top:-20%;}100%{top:120%;}}
+@keyframes explode{0%{transform:scale(0) rotate(0);opacity:1;}100%{transform:scale(4) rotate(720deg);opacity:0;}}
+
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
+.screen.hidden{display:none!important;}
+
+/* LOGO */
+.logo{text-align:center;margin-bottom:26px;animation:fadein .7s ease;}
+.logo h1{font-size:clamp(20px,4.5vw,42px);font-weight:900;letter-spacing:.22em;color:var(--c);animation:pulse-c 3s infinite;position:relative;display:inline-block;overflow:hidden;}
+.logo h1::after{content:'';position:absolute;left:0;width:100%;height:4px;background:linear-gradient(transparent,rgba(0,245,255,.5),transparent);animation:scanpulse 2.5s linear infinite;}
+.logo .sub{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.4em;color:var(--c2);margin-top:5px;}
+
+/* CARD */
+.card{background:var(--panel);border:1px solid var(--border);padding:24px 30px;width:min(440px,95vw);position:relative;animation:slideup .4s ease;}
+.card::before,.card::after{content:'';position:absolute;width:16px;height:16px;border-color:var(--c);border-style:solid;}
+.card::before{top:-2px;left:-2px;border-width:2px 0 0 2px;}
+.card::after{bottom:-2px;right:-2px;border-width:0 2px 2px 0;}
+
+.stitle{font-size:8px;letter-spacing:.4em;color:#ffffff33;margin-bottom:12px;font-family:'Share Tech Mono',monospace;text-align:center;}
+.divider{height:1px;background:linear-gradient(90deg,transparent,var(--c2),transparent);margin:16px 0;opacity:.25;}
+
+/* INPUTS */
+.inp{font-family:'Share Tech Mono',monospace;font-size:15px;letter-spacing:.2em;background:#000;border:1px solid var(--border);color:var(--c);padding:10px 14px;width:100%;text-align:center;text-transform:uppercase;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:10px;}
+.inp:focus{border-color:var(--c2);box-shadow:var(--gc);}
+.inp::placeholder{color:#ffffff1a;}
+
+/* BUTTONS */
+.btn{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:.2em;padding:11px 0;width:100%;border:1.5px solid var(--c);background:transparent;color:var(--c);cursor:pointer;text-transform:uppercase;transition:all .12s;margin-bottom:8px;display:block;}
+.btn:hover:not(:disabled){background:var(--c);color:var(--dark);box-shadow:var(--gc);}
+.btn:disabled{opacity:.3;cursor:not-allowed;}
+.btn.o{border-color:var(--o);color:var(--o);}
+.btn.o:hover:not(:disabled){background:var(--o);color:var(--dark);box-shadow:var(--go);}
+.btn.g{border-color:var(--g);color:var(--g);}
+.btn.g:hover:not(:disabled){background:var(--g);color:var(--dark);box-shadow:var(--gg);}
+.btn.sm{font-size:9px;padding:7px 0;margin-bottom:6px;}
+.btn.ghost{color:#ffffff22;border-color:#ffffff11;}
+.btn.ghost:hover{color:#ffffff55;border-color:#ffffff33;background:transparent;box-shadow:none;}
+
+.status{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:.15em;text-align:center;min-height:16px;margin-top:4px;}
+.status.ok{color:var(--c2);}
+.status.err{color:#ff4444;}
+.status.wait{color:#ffffff55;animation:blink 1.2s infinite;}
+
+/* USER BADGE */
+.ubadge{display:inline-flex;align-items:center;gap:8px;padding:5px 16px;border:1px solid var(--border);background:#000;font-family:'Share Tech Mono',monospace;font-size:11px;margin:0 auto 20px;letter-spacing:.15em;}
+.udot{width:6px;height:6px;border-radius:50%;background:var(--c);box-shadow:var(--gc);animation:blink 2s infinite;}
+
+/* ════ ROOM LIST ════ */
+.room-list{max-height:200px;overflow-y:auto;margin:8px 0;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.room-list::-webkit-scrollbar{width:3px;}
+.room-list::-webkit-scrollbar-thumb{background:var(--border);}
+
+.room-item{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid var(--border);margin-bottom:5px;background:#000;animation:fadein .25s ease;transition:border-color .12s;}
+.room-item:hover{border-color:var(--c2);box-shadow:0 0 6px rgba(0,245,255,.08);}
+.room-meta{display:flex;flex-direction:column;gap:2px;}
+.room-name-lbl{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--c);}
+.room-host-lbl{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff33;letter-spacing:.08em;}
+.room-enter{font-size:8px;padding:5px 12px;border:1px solid var(--c);color:var(--c);background:transparent;cursor:pointer;font-family:'Orbitron',monospace;letter-spacing:.1em;transition:all .12s;white-space:nowrap;}
+.room-enter:hover{background:var(--c);color:var(--dark);}
+.room-empty{font-family:'Share Tech Mono',monospace;font-size:9px;color:#ffffff22;text-align:center;padding:22px;letter-spacing:.2em;animation:blink 2.5s infinite;}
+.live-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.live-ind{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff33;display:flex;align-items:center;gap:6px;}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--g);box-shadow:var(--gg);animation:blink 1.5s infinite;}
+.rbtn{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff22;background:none;border:1px solid #ffffff11;padding:3px 8px;cursor:pointer;letter-spacing:.08em;transition:all .12s;}
+.rbtn:hover{color:var(--c2);border-color:var(--c2);}
+
+/* ════ DIFFICULTY ════ */
+.diff-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
+.dbtn{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;padding:10px 0;border:1.5px solid var(--border);background:transparent;color:#ffffff33;cursor:pointer;text-transform:uppercase;transition:all .15s;}
+.dbtn:hover{border-color:var(--c2);color:var(--c2);}
+.dbtn.de{border-color:var(--g);color:var(--g);box-shadow:var(--gg);}
+.dbtn.dm{border-color:var(--o2);color:var(--o2);}
+.dbtn.dh{border-color:var(--o);color:var(--o);box-shadow:var(--go);}
+#diff-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff33;text-align:center;letter-spacing:.12em;min-height:12px;margin-bottom:12px;}
+
+/* ════ GAME HUD ════ */
+#game-wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;}
+#hud{display:flex;align-items:center;justify-content:space-between;width:min(800px,98vw);padding:0 4px;}
+.pp{display:flex;flex-direction:column;gap:3px;min-width:130px;}
+.pp.L{align-items:flex-start;}
+.pp.R{align-items:flex-end;}
+.pn{font-size:10px;font-weight:700;letter-spacing:.1em;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pn.c{color:var(--c);text-shadow:var(--gc);}
+.pn.o{color:var(--o);text-shadow:var(--go);}
+.ps{font-family:'Share Tech Mono',monospace;font-size:18px;}
+.ps.c{color:var(--c);text-shadow:var(--gc);}
+.ps.o{color:var(--o);text-shadow:var(--go);}
+.lv{display:flex;gap:4px;}
+.dot{width:7px;height:7px;border-radius:50%;transition:all .3s;}
+.dot.c{background:var(--c);box-shadow:var(--gc);}
+.dot.o{background:var(--o);box-shadow:var(--go);}
+.dot.dead{background:#111;box-shadow:none;}
+#ci{display:flex;flex-direction:column;align-items:center;gap:1px;}
+#rl{font-size:7px;letter-spacing:.4em;color:#ffffff22;font-family:'Share Tech Mono',monospace;}
+#rn{font-size:16px;font-weight:900;color:#ffffff44;}
+#cw{position:relative;border:1.5px solid var(--c2);box-shadow:0 0 20px rgba(0,245,255,.15),inset 0 0 40px rgba(0,0,0,.5);}
+#cw::before,#cw::after{content:'';position:absolute;width:16px;height:16px;border-color:var(--c);border-style:solid;z-index:10;}
+#cw::before{top:-3px;left:-3px;border-width:3px 0 0 3px;}
+#cw::after{bottom:-3px;right:-3px;border-width:0 3px 3px 0;}
+#gc{display:block;image-rendering:pixelated;}
+#cb{display:flex;justify-content:space-between;align-items:center;width:min(800px,98vw);padding:0 4px;}
+.ctrl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.08em;line-height:1.9;}
+.ctrl.c{color:var(--c2);}
+.ctrl.o{color:var(--o2);text-align:right;}
+.k{display:inline-block;border:1px solid currentColor;padding:0 3px;font-size:7px;margin:0 1px;}
+#pi{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff18;text-align:center;}
+#mbadge{font-family:'Share Tech Mono',monospace;font-size:7px;color:#ffffff18;}
+
+/* OVERLAYS */
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,8,16,.93);gap:12px;z-index:50;}
+.ov.hidden{display:none;}
+.ovt{font-size:clamp(16px,4vw,36px);font-weight:900;letter-spacing:.15em;text-align:center;}
+.ovs{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.2em;color:#aaa;}
+.exp{position:absolute;width:8px;height:8px;border-radius:50%;animation:explode .7s ease-out forwards;}
+</style>
+</head>
+<body>
+
+<!-- ════ LOGIN ════ -->
+<div id="s-login" class="screen">
+  <div class="logo">
+    <h1>⚡ TRON LEGACY ⚡</h1>
+    <div class="sub">LIGHT CYCLES — ARCADE ONLINE</div>
+  </div>
+  <div class="card">
+    <div class="stitle">▸ IDENTIFICAÇÃO DO PROGRAMA</div>
+    <input class="inp" id="inp-user" type="text" placeholder="SEU NOME DE USUÁRIO" maxlength="14" autocomplete="off" spellcheck="false"/>
+    <button class="btn" id="btn-login">ENTRAR NA GRID ⚡</button>
+    <div class="status" id="st-login"></div>
+  </div>
+</div>
+
+<!-- ════ MENU ════ -->
+<div id="s-menu" class="screen hidden">
+  <div class="logo">
+    <h1>⚡ TRON LEGACY ⚡</h1>
+    <div class="sub">LIGHT CYCLES — ARCADE ONLINE</div>
+  </div>
+  <div class="ubadge"><div class="udot"></div><span id="disp-user">PROGRAM</span><span style="color:#ffffff22">|</span><span style="color:#ffffff33;font-size:8px">ONLINE</span></div>
+  <div style="display:flex;flex-direction:column;gap:10px;width:min(280px,90vw);animation:slideup .4s ease;">
+    <button class="btn g" id="btn-go-mp" style="padding:16px 0;font-size:12px;">🌐 JOGAR ONLINE</button>
+    <button class="btn o" id="btn-go-sp" style="padding:16px 0;font-size:12px;">🤖 VS COMPUTADOR</button>
+    <button class="btn ghost sm" id="btn-logout">↩ TROCAR USUÁRIO</button>
+  </div>
+</div>
+
+<!-- ════ MULTIPLAYER ════ -->
+<div id="s-mp" class="screen hidden">
+  <div class="logo" style="margin-bottom:14px;">
+    <h1 style="font-size:clamp(14px,3vw,24px);animation:pulse-c 3s infinite;letter-spacing:.2em;">🌐 SALAS ONLINE</h1>
+  </div>
+  <div class="ubadge"><div class="udot"></div><span id="disp-user2">PROGRAM</span></div>
+  <div class="card" style="max-width:460px;">
+    <div class="stitle">▸ CRIAR NOVA SALA</div>
+    <button class="btn g" id="btn-create-room">+ CRIAR SALA</button>
+    <div id="my-room-box" style="display:none;">
+      <div style="background:#000;border:1px solid var(--c2);padding:10px;text-align:center;margin:8px 0;">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:.3em;color:#ffffff22;margin-bottom:4px;">SUA SALA ESTÁ ATIVA</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:20px;letter-spacing:.18em;color:var(--c);text-shadow:var(--gc);" id="my-room-label">----</div>
+      </div>
+      <div class="status wait" id="st-room">⏳ AGUARDANDO OPONENTE...</div>
+    </div>
+    <div class="divider"></div>
+    <div class="stitle">▸ SALAS DISPONÍVEIS</div>
+    <div class="live-row">
+      <div class="live-ind"><span class="ldot"></span>AO VIVO</div>
+      <button class="rbtn" id="btn-refresh">↻ ATUALIZAR</button>
+    </div>
+    <div class="room-list" id="room-list"><div class="room-empty">CARREGANDO...</div></div>
+    <div class="divider"></div>
+    <button class="btn ghost sm" id="btn-back-mp">← VOLTAR</button>
+  </div>
+</div>
+
+<!-- ════ SINGLEPLAYER ════ -->
+<div id="s-sp" class="screen hidden">
+  <div class="logo" style="margin-bottom:16px;">
+    <h1 style="font-size:clamp(14px,3vw,24px);animation:pulse-o 3s infinite;color:var(--o);letter-spacing:.2em;">🤖 VS COMPUTADOR</h1>
+  </div>
+  <div class="card">
+    <div class="stitle">▸ ESCOLHA A DIFICULDADE</div>
+    <div class="diff-row">
+      <button class="dbtn" id="d-easy" onclick="setDiff('easy')">FÁCIL</button>
+      <button class="dbtn" id="d-med"  onclick="setDiff('med')">MÉDIO</button>
+      <button class="dbtn" id="d-hard" onclick="setDiff('hard')">DIFÍCIL</button>
+    </div>
+    <div id="diff-info"></div>
+    <button class="btn o" id="btn-start-sp">▶ INICIAR BATALHA</button>
+    <div class="divider"></div>
+    <button class="btn ghost sm" id="btn-back-sp">← VOLTAR</button>
+  </div>
+</div>
+
+<!-- ════ GAME ════ -->
+<div id="game-wrap" class="screen hidden">
+  <div id="hud">
+    <div class="pp L">
+      <div class="pn c" id="n1">▶ PLAYER 1</div>
+      <div class="ps c" id="sc1">000000</div>
+      <div class="lv" id="lv1"><div class="dot c"></div><div class="dot c"></div><div class="dot c"></div></div>
+    </div>
+    <div id="ci"><div id="rl">ROUND</div><div id="rn">01</div></div>
+    <div class="pp R">
+      <div class="pn o" id="n2">PLAYER 2 ◀</div>
+      <div class="ps o" id="sc2">000000</div>
+      <div class="lv" id="lv2" style="justify-content:flex-end;"><div class="dot o"></div><div class="dot o"></div><div class="dot o"></div></div>
+    </div>
+  </div>
+  <div id="cw">
+    <canvas id="gc"></canvas>
+    <div class="ov" id="ov-wait">
+      <div class="ovt" style="color:var(--c);font-size:clamp(13px,3vw,20px);">⏳ AGUARDANDO OPONENTE...</div>
+      <div class="ovs" style="animation:blink 1.5s infinite;">CONECTANDO À SALA</div>
+    </div>
+    <div class="ov hidden" id="ov-cd">
+      <div style="font-size:8px;letter-spacing:.4em;color:#aaa;font-family:'Share Tech Mono',monospace;">PREPARE-SE</div>
+      <div class="ovt" id="cdn" style="font-size:80px;color:var(--c);animation:pulse-c 1s infinite;">3</div>
+    </div>
+    <div class="ov hidden" id="ov-ro">
+      <div class="ovt" id="ro-txt"></div>
+      <div class="ovs" id="ro-sub"></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff22;animation:blink 1s infinite;margin-top:8px;">PRÓXIMA RODADA EM INSTANTES...</div>
+    </div>
+    <div class="ov hidden" id="ov-go">
+      <div class="ovt" id="go-txt"></div>
+      <div class="ovs" id="go-sc" style="margin-top:4px;"></div>
+      <button class="btn" id="btn-go-back" style="width:190px;margin-top:14px;">VOLTAR AO MENU</button>
+    </div>
+  </div>
+  <div id="cb">
+    <div class="ctrl c"><span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> ou <span class="k">↑</span><span class="k">↓</span><span class="k">←</span><span class="k">→</span></div>
+    <div id="pi">--ms</div>
+    <div id="mbadge"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  TRON LEGACY — COMPLETE GAME ENGINE
+//  • Multiplayer: Firebase rooms + PeerJS WebRTC
+//  • Singleplayer: AI com 3 dificuldades
+// ══════════════════════════════════════════════
+
+// ── Firebase: substitua com suas chaves (veja instruções abaixo) ──
+const FB = {
+  apiKey: "AIzaSyCNOmjvawULQCKv14CA7fCGulQlmfLp10Y",
+  authDomain: "tron-legacy-game.firebaseapp.com",
+  databaseURL: "https://tron-legacy-game-default-rtdb.firebaseio.com",
+  projectId: "tron-legacy-game",
+  storageBucket: "tron-legacy-game.firebasestorage.app",
+  messagingSenderId: "942906872382",
+  appId: "1:942906872382:web:4f3a4bf81951c2dd4eb76f"
+};
+
+let db = null, roomsRef = null, fbOk = false;
+try {
+  firebase.initializeApp(FB);
+  db = firebase.database();
+  roomsRef = db.ref('rooms');
+  fbOk = true;
+} catch(e){ console.warn('Firebase erro:', e); }
+
+// ── Canvas ──
+const CELL=10, TICK=90, MAX_ROUNDS=5;
+const P1C='#00f5ff',P1T='#003344',P1G='rgba(0,245,255,.85)';
+const P2C='#ff6600',P2T='#441400',P2G='rgba(255,102,0,.85)';
+const cv=document.getElementById('gc'), ctx=cv.getContext('2d');
+const g=id=>document.getElementById(id);
+
+function resize(){
+  const mw=Math.min(window.innerWidth-16,800), mh=window.innerHeight-170;
+  const sz=Math.floor(Math.min(mw,mh,800)/CELL)*CELL;
+  cv.width=sz; cv.height=sz;
+}
+resize();
+window.addEventListener('resize',()=>{ resize(); if(active) spawn(); });
+
+// ══════════════════════════════
+//  LOGIN
+// ══════════════════════════════
+let ME = localStorage.getItem('tron_me')||'';
+if(ME.length>=2) showMenu();
+
+g('inp-user').onkeydown=e=>{ if(e.key==='Enter') doLogin(); };
+g('btn-login').onclick=doLogin;
+function doLogin(){
+  const v=g('inp-user').value.trim().toUpperCase().replace(/[^A-Z0-9_\-\.]/g,'');
+  if(v.length<2){ flash('st-login','⚠️ MÍNIMO 2 CARACTERES','err'); return; }
+  ME=v.slice(0,14); localStorage.setItem('tron_me',ME); showMenu();
+}
+function flash(id,msg,cls){
+  const el=g(id); el.textContent=msg; el.className='status '+cls;
+}
+function showMenu(){
+  show('s-menu'); g('disp-user').textContent=ME; g('disp-user2').textContent=ME;
+}
+function show(id){
+  ['s-login','s-menu','s-mp','s-sp','game-wrap'].forEach(s=>g(s).classList.toggle('hidden',s!==id));
+}
+
+g('btn-logout').onclick=()=>{ localStorage.removeItem('tron_me'); ME=''; g('inp-user').value=''; show('s-login'); cleanup(); };
+
+// ══════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════
+g('btn-go-mp').onclick=()=>{ show('s-mp'); loadRooms(); };
+g('btn-go-sp').onclick=()=>{ show('s-sp'); setDiff('med'); };
+g('btn-back-mp').onclick=()=>{ cleanup(); showMenu(); };
+g('btn-back-sp').onclick=showMenu;
+
+// ══════════════════════════════
+//  DIFFICULTY
+// ══════════════════════════════
+let diff='med';
+const DMAP={
+  easy:{tick:170,look:1,agg:.08,miss:.35,label:'CPU LENTA — REAGE TARDE, FÁCIL DE ENGANAR'},
+  med: {tick:100,look:3,agg:.4, miss:.12,label:'CPU NORMAL — EQUILIBRADA, BOA PARA TREINAR'},
+  hard:{tick:65, look:7,agg:.85,miss:.02,label:'CPU EXPERT — RÁPIDA E AGRESSIVA, SEM PIEDADE'}
+};
+function setDiff(d){
+  diff=d;
+  ['easy','med','hard'].forEach(x=>{ g('d-'+x).className='dbtn'; });
+  g('d-'+d).className='dbtn '+(d==='easy'?'de':d==='med'?'dm':'dh');
+  g('diff-info').textContent=DMAP[d].label;
+}
+g('btn-start-sp').onclick=()=>{
+  mode='sp'; role='p1';
+  g('n1').textContent='▶ '+ME.slice(0,10);
+  g('n2').textContent=(diff==='easy'?'CPU FÁCIL':diff==='med'?'CPU MÉDIO':'CPU DIFÍCIL')+' ◀';
+  g('mbadge').textContent='VS CPU · '+diff.toUpperCase();
+  show('game-wrap');
+  g('ov-wait').classList.add('hidden');
+  launch();
+};
+
+// ══════════════════════════════
+//  ROOM LIST
+// ══════════════════════════════
+let fbListener=null;
+function loadRooms(){
+  g('room-list').innerHTML='<div class="room-empty" style="animation:none;color:#ffffff22;">CARREGANDO...</div>';
+  if(fbOk){
+    if(fbListener){ db.ref('rooms').off('value',fbListener); }
+    fbListener=db.ref('rooms').on('value',snap=>{
+      const data=snap.val()||{};
+      const rooms=Object.entries(data).filter(([,v])=>v.status==='open').map(([k,v])=>({k,...v}));
+      renderRooms(rooms);
+    });
+  } else {
+    // Firebase not configured — show instructions
+    g('room-list').innerHTML=`
+      <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff33;text-align:center;padding:16px;line-height:2;letter-spacing:.1em;">
+        ⚠️ FIREBASE NÃO CONFIGURADO<br>
+        SIGA AS INSTRUÇÕES ABAIXO<br>
+        PARA ATIVAR AS SALAS ONLINE
+      </div>`;
+  }
+}
+function renderRooms(rooms){
+  const el=g('room-list');
+  if(!rooms.length){ el.innerHTML='<div class="room-empty">⚡ NENHUMA SALA ABERTA<br>CRIE UMA SALA ACIMA!</div>'; return; }
+  el.innerHTML='';
+  rooms.forEach(r=>{
+    const d=document.createElement('div'); d.className='room-item';
+    d.innerHTML=`<div class="room-meta"><div class="room-name-lbl">${esc(r.name)}</div><div class="room-host-lbl">HOST: ${esc(r.host)} · ${ago(r.ts)}</div></div><button class="room-enter">ENTRAR</button>`;
+    d.querySelector('.room-enter').onclick=()=>joinRoom(r.k,r.pid,r.host);
+    el.appendChild(d);
+  });
+}
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const ago=ts=>{ const d=Date.now()-ts; return d<60000?Math.floor(d/1000)+'s':Math.floor(d/60000)+'min'; };
+g('btn-refresh').onclick=loadRooms;
+
+// ══════════════════════════════
+//  MULTIPLAYER
+// ══════════════════════════════
+let peer=null, conn=null, isHost=false, role=null, mode='sp', myKey=null;
+let pingT=0;
+setInterval(()=>{ if(conn?.open){pingT=Date.now();send({t:'ping'});} },2000);
+
+const adjectives=['DARK','NEON','GRID','FLUX','ZERO','NOVA','CORE','VOLT','BYTE','SYNC','IRON','BEAM','APEX','VOID','STAR'];
+function genName(){ return adjectives[Math.floor(Math.random()*adjectives.length)]+'-'+String(Math.floor(Math.random()*9000)+1000); }
+
+g('btn-create-room').onclick=()=>{
+  if(peer){peer.destroy();peer=null;}
+  isHost=true; role='p1';
+  const name=genName();
+  const pid='tron-'+name.replace('-','').toLowerCase()+'-'+Date.now().toString(36);
+  g('btn-create-room').disabled=true;
+  initPeer(pid,()=>{
+    if(fbOk){
+      const ref=db.ref('rooms').push();
+      myKey=ref.key;
+      ref.set({name,host:ME,pid,status:'open',ts:Date.now()});
+      ref.onDisconnect().remove();
+    }
+    g('my-room-label').textContent=name;
+    g('my-room-box').style.display='block';
+    flash('st-room','⏳ AGUARDANDO OPONENTE...','wait');
+  });
+};
+
+function joinRoom(key,pid,host){
+  isHost=false; role='p2';
+  initPeer('tron-guest-'+Date.now().toString(36),()=>{
+    conn=peer.connect(pid,{reliable:true});
+    conn.on('open',()=>{
+      g('n1').textContent='▶ '+host.slice(0,10);
+      g('n2').textContent=ME.slice(0,10)+' ◀';
+      g('mbadge').textContent='ONLINE VS '+host.toUpperCase();
+      setupConn();
+      if(fbOk) db.ref('rooms/'+key).update({status:'playing'});
+    });
+    conn.on('error',()=>{ alert('Sala não disponível.'); loadRooms(); });
+  });
+}
+
+function initPeer(id,cb){
+  peer=new Peer(id,{debug:0,config:{iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]}});
+  peer.on('open',cb||function(){});
+  peer.on('connection',c=>{ if(isHost){conn=c;setupConn();} });
+  peer.on('error',e=>console.error('PeerJS:',e.type));
+}
+
+function setupConn(){
+  conn.on('open',()=>{
+    if(isHost){
+      flash('st-room','✅ OPONENTE CONECTADO!','ok');
+      if(myKey&&fbOk) db.ref('rooms/'+myKey).update({status:'playing'});
+      mode='mp';
+      send({t:'start',h:ME});
+      g('n1').textContent='▶ '+ME.slice(0,10);
+      g('mbadge').textContent='ONLINE MULTIPLAYER';
+      setTimeout(()=>{ show('game-wrap'); g('ov-wait').classList.add('hidden'); launch(); },600);
+    }
+  });
+  conn.on('data',onMsg);
+  conn.on('close',()=>{ if(active){ alert('Oponente desconectou!'); backToMenu(); } });
+}
+
+function send(m){ if(conn?.open) conn.send(m); }
+function onMsg(m){
+  if(m.t==='ping'){send({t:'pong'});}
+  else if(m.t==='pong'){g('pi').textContent=(Date.now()-pingT)+'ms';}
+  else if(m.t==='start'){
+    mode='mp';
+    g('n1').textContent='▶ '+(m.h||'HOST').slice(0,10);
+    g('n2').textContent=ME.slice(0,10)+' ◀';
+    g('mbadge').textContent='ONLINE VS '+(m.h||'HOST').toUpperCase();
+    show('game-wrap'); g('ov-wait').classList.add('hidden'); launch();
+  }
+  else if(m.t==='dir'){opDir=m.d;}
+  else if(m.t==='next'){nextRound();}
+}
+
+function cleanup(){
+  if(myKey&&fbOk){db.ref('rooms/'+myKey).remove();myKey=null;}
+  if(fbListener){db.ref('rooms').off('value',fbListener);fbListener=null;}
+  if(peer){peer.destroy();peer=null;} if(conn){conn.close();conn=null;}
+  g('btn-create-room').disabled=false;
+  g('my-room-box').style.display='none';
+}
+
+// ══════════════════════════════
+//  GAME ENGINE
+// ══════════════════════════════
+let active=false, state='idle', round=1, scores=[0,0], lives=[3,3], lastT=0;
+let p1=null,p2=null,grid={};
+let myDir={dx:1,dy:0}, opDir={dx:-1,dy:0};
+let cdI=null, aiT=0;
+
+function launch(){ active=true; scores=[0,0]; lives=[3,3]; round=1; updateHUD(); nextRound(); }
+
+function spawn(){
+  const C=cv.width/CELL, R=cv.height/CELL; grid={};
+  p1={x:Math.floor(C*.25),y:Math.floor(R*.5),dx:1,dy:0,color:P1C,trail:P1T,glow:P1G,alive:true};
+  p2={x:Math.floor(C*.75),y:Math.floor(R*.5),dx:-1,dy:0,color:P2C,trail:P2T,glow:P2G,alive:true};
+}
+
+function nextRound(){
+  spawn();
+  myDir=role==='p1'?{dx:1,dy:0}:{dx:-1,dy:0};
+  opDir=role==='p1'?{dx:-1,dy:0}:{dx:1,dy:0};
+  state='countdown'; let cd=3;
+  g('ov-ro').classList.add('hidden'); g('ov-go').classList.add('hidden');
+  g('ov-cd').classList.remove('hidden'); g('cdn').textContent=cd;
+  clearInterval(cdI);
+  cdI=setInterval(()=>{
+    cd--; g('cdn').textContent=cd>0?cd:'GO!';
+    if(cd<=0){ clearInterval(cdI); setTimeout(()=>{ g('ov-cd').classList.add('hidden'); state='on'; lastT=aiT=performance.now(); },350); }
+  },mode==='sp'?750:900);
+}
+
+// ── Input ──
+const keys={};
+window.addEventListener('keydown',e=>{ keys[e.code]=true; if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) e.preventDefault(); });
+window.addEventListener('keyup',e=>keys[e.code]=false);
+
+function readIn(){
+  const me=role==='p1'?p1:p2; let nd=null;
+  if((keys['KeyW']||keys['ArrowUp'])    && me.dy!==1)  nd={dx:0,dy:-1};
+  if((keys['KeyS']||keys['ArrowDown'])  && me.dy!==-1) nd={dx:0,dy:1};
+  if((keys['KeyA']||keys['ArrowLeft'])  && me.dx!==1)  nd={dx:-1,dy:0};
+  if((keys['KeyD']||keys['ArrowRight']) && me.dx!==-1) nd={dx:1,dy:0};
+  if(nd){ myDir=nd; if(mode==='mp') send({t:'dir',d:nd}); }
+}
+
+// ── Tick ──
+function tick(now){
+  if(state!=='on') return;
+  if(mode==='sp'){
+    if(now-lastT>=TICK){ lastT=now; readIn(); move(p1,myDir,0); col(); }
+    const dt=DMAP[diff];
+    if(now-aiT>=dt.tick){ aiT=now; opDir=aiCalc(p2,dt); move(p2,opDir,1); col(); }
+  } else {
+    if(now-lastT<TICK) return; lastT=now; readIn();
+    move(p1,role==='p1'?myDir:opDir,0);
+    move(p2,role==='p2'?myDir:opDir,1);
+    col();
+  }
+}
+
+const gk=(x,y)=>x+','+y;
+
+function move(p,d,i){
+  if(!p.alive) return;
+  p.dx=d.dx; p.dy=d.dy;
+  const k=gk(p.x,p.y);
+  if(grid[k]===undefined){ grid[k]=i; }
+  p.x+=p.dx; p.y+=p.dy; scores[i]++;
+}
+
+function col(){
+  chk(p1,0); chk(p2,1);
+  if(p1.alive&&p2.alive&&p1.x===p2.x&&p1.y===p2.y){p1.alive=false;p2.alive=false;}
+  if(!p1.alive||!p2.alive){
+    const w=!p1.alive&&p2.alive?1:p1.alive&&!p2.alive?0:-1;
+    if(!p1.alive) boom(p1.x*CELL,p1.y*CELL,P1C);
+    if(!p2.alive) boom(p2.x*CELL,p2.y*CELL,P2C);
+    state='end'; setTimeout(()=>endRound(w),600);
+  }
+}
+
+function chk(p,i){
+  if(!p.alive) return;
+  const C=cv.width/CELL,R=cv.height/CELL;
+  if(p.x<0||p.x>=C||p.y<0||p.y>=R){p.alive=false;return;}
+  if(grid[gk(p.x,p.y)]!==undefined) p.alive=false;
+}
+
+// ── AI ──
+function aiCalc(p,dt){
+  if(!p.alive) return opDir;
+  const all=[{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+  const valid=all.filter(d=>!(d.dx===-p.dx&&d.dy===-p.dy));
+  const scored=valid.map(d=>{
+    const nx=p.x+d.dx,ny=p.y+d.dy;
+    if(!free(nx,ny)) return{d,s:-999};
+    let s=0,cx=nx,cy=ny,cdx=d.dx,cdy=d.dy;
+    for(let i=0;i<dt.look;i++){
+      if(free(cx+cdx,cy+cdy)){s+=10;cx+=cdx;cy+=cdy;}
+      else{ const t=[{dx:-cdy,dy:cdx},{dx:cdy,dy:-cdx}].find(t=>free(cx+t.dx,cy+t.dy));
+        if(t){s+=4;cdx=t.dx;cdy=t.dy;}else break; }
+    }
+    const ex=role==='p1'?p1.x:p2.x,ey=role==='p1'?p1.y:p2.y;
+    s+=dt.agg*(50-Math.abs(nx-ex)-Math.abs(ny-ey));
+    // Difficulty miss chance
+    if(Math.random()<dt.miss) s-=30;
+    return{d,s};
+  });
+  scored.sort((a,b)=>b.s-a.s);
+  return scored[0]?.s>-900 ? scored[0].d : opDir;
+}
+
+function free(x,y){
+  const C=cv.width/CELL,R=cv.height/CELL;
+  return x>=0&&x<C&&y>=0&&y<R&&grid[gk(x,y)]===undefined;
+}
+
+// ── Explosion ──
+function boom(px,py,color){
+  const wb=g('cw').getBoundingClientRect(),cb2=cv.getBoundingClientRect();
+  for(let i=0;i<14;i++){
+    const el=document.createElement('div'); el.className='exp';
+    el.style.cssText=`left:${px+(cb2.left-wb.left)+CELL/2+(Math.random()-.5)*55}px;top:${py+(cb2.top-wb.top)+CELL/2+(Math.random()-.5)*55}px;background:${color};box-shadow:0 0 10px ${color};animation-delay:${Math.random()*.18}s;`;
+    g('cw').appendChild(el); setTimeout(()=>el.remove(),900);
+  }
+}
+
+// ── End Round ──
+function endRound(w){
+  state='over';
+  const myWin=(role==='p1'&&w===0)||(role==='p2'&&w===1), tie=w===-1;
+  const txt=g('ro-txt'); txt.style.animation='';
+  if(tie){ txt.textContent='EMPATE!'; txt.style.color='#fff'; lives[0]--; lives[1]--; }
+  else if(myWin){
+    txt.textContent='⚡ VOCÊ VENCEU!'; txt.style.color='var(--c)'; txt.style.animation='pulse-c 1s infinite';
+    if(role==='p1'){scores[0]+=500;lives[1]--;}else{scores[1]+=500;lives[0]--;}
+  } else {
+    txt.textContent='DERROTA...'; txt.style.color='var(--o)'; txt.style.animation='pulse-o 1s infinite';
+    if(role==='p1'){scores[1]+=500;lives[0]--;}else{scores[0]+=500;lives[1]--;}
+  }
+  g('ro-sub').textContent='RODADA '+round+' FINALIZADA';
+  updateHUD(); g('ov-ro').classList.remove('hidden');
+  const done=lives[0]<=0||lives[1]<=0||round>=MAX_ROUNDS;
+  if(done){ setTimeout(endGame,1700); }
+  else {
+    round++;
+    const delay=mode==='sp'?1600:2400;
+    if(mode==='sp'||isHost){ setTimeout(()=>{ if(mode==='mp') send({t:'next'}); nextRound(); },delay); }
+  }
+}
+
+function endGame(){
+  state='gameover'; g('ov-ro').classList.add('hidden'); g('ov-go').classList.remove('hidden');
+  const txt=g('go-txt'); txt.style.animation='';
+  const myS=role==='p1'?scores[0]:scores[1], opS=role==='p1'?scores[1]:scores[0];
+  if(myS>opS){ txt.textContent='🏆 VOCÊ GANHOU!'; txt.style.color='var(--c)'; txt.style.animation='pulse-c 1.5s infinite'; }
+  else if(opS>myS){ txt.textContent='DERROTA...'; txt.style.color='var(--o)'; txt.style.animation='pulse-o 1.5s infinite'; }
+  else { txt.textContent='EMPATE TOTAL!'; txt.style.color='#fff'; }
+  const n1t=g('n1').textContent.replace('▶ ',''), n2t=g('n2').textContent.replace(' ◀','');
+  g('go-sc').textContent=n1t+': '+scores[0].toLocaleString()+' × '+n2t+': '+scores[1].toLocaleString();
+}
+
+g('btn-go-back').onclick=backToMenu;
+function backToMenu(){ active=false; state='idle'; cleanup(); showMenu(); g('ov-go').classList.add('hidden'); g('ov-wait').classList.remove('hidden'); }
+
+// ── HUD ──
+function updateHUD(){
+  g('sc1').textContent=String(scores[0]).padStart(6,'0');
+  g('sc2').textContent=String(scores[1]).padStart(6,'0');
+  g('rn').textContent=String(round).padStart(2,'0');
+  ['lv1','lv2'].forEach((id,pi)=>g(id).querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('dead',i>=lives[pi])));
+}
+
+// ── Render ──
+function render(now){
+  ctx.clearRect(0,0,cv.width,cv.height); drawGrid();
+  if(['on','end','over'].includes(state)){
+    drawTrails(); if(p1) drawBike(p1,now); if(p2) drawBike(p2,now);
+  }
+}
+function drawGrid(){
+  const W=cv.width,H=cv.height;
+  ctx.strokeStyle='#001a2e'; ctx.lineWidth=.5;
+  for(let x=0;x<=W;x+=CELL){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<=H;y+=CELL){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(0,245,255,.03)'; ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+}
+function drawTrails(){
+  for(const[k,i] of Object.entries(grid)){
+    const[x,y]=k.split(',').map(Number);
+    ctx.fillStyle=i===0?P1T:P2T; ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
+    ctx.fillStyle=i===0?'rgba(0,245,255,.28)':'rgba(255,102,0,.28)';
+    ctx.fillRect(x*CELL,y*CELL,CELL,1); ctx.fillRect(x*CELL,y*CELL+CELL-1,CELL,1);
+    ctx.fillRect(x*CELL,y*CELL,1,CELL); ctx.fillRect(x*CELL+CELL-1,y*CELL,1,CELL);
+  }
+}
+function drawBike(p,now){
+  if(!p.alive) return;
+  const px=p.x*CELL,py=p.y*CELL,pulse=Math.sin(now*.012)*.3+.7;
+  ctx.shadowColor=p.glow; ctx.shadowBlur=16*pulse;
+  ctx.fillStyle=p.color; ctx.fillRect(px+1,py+1,CELL-2,CELL-2);
+  ctx.fillStyle='#fff'; ctx.fillRect(px+3,py+3,CELL-6,CELL-6);
+  ctx.shadowBlur=0; ctx.fillStyle=p.color; const h=CELL/2;
+  if(p.dx===1) ctx.fillRect(px+CELL-2,py+h-1,3,2);
+  if(p.dx===-1)ctx.fillRect(px-1,py+h-1,3,2);
+  if(p.dy===1) ctx.fillRect(px+h-1,py+CELL-2,2,3);
+  if(p.dy===-1)ctx.fillRect(px+h-1,py-1,2,3);
+}
+
+// ── Loop ──
+(function loop(now){ if(active) tick(now); render(now); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>
