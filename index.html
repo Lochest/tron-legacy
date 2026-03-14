@@ -768,6 +768,14 @@ g('pw-input').onkeydown=e=>{if(e.key==='Enter')g('pw-confirm').click();};
 
 function simpleHash(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h)+s.charCodeAt(i)|0;return String(h>>>0);}
 
+// ── Status de conexão visível ──
+function showConnStatus(msg,type){
+  // Mostra no footer status
+  const el=g('footer-status');
+  if(el){ el.textContent=msg; el.style.color=type==='err'?'#ff5555':type==='ok'?'#00ff88':'#ffffffcc'; }
+  console.log('[CONN]',msg);
+}
+
 // ── SP Modal ──
 
 
@@ -795,19 +803,44 @@ let pingT=0;
 setInterval(()=>{if(conn?.open){pingT=Date.now();send({t:'ping'});}},2000);
 
 function joinRoom(key,pid,host,name){
-  isHost=false;role='p2';isSpectator=false;
-  initPeer('tron-g-'+Date.now().toString(36),()=>{
-    conn=peer.connect(pid,{reliable:true,metadata:{type:'player',name:ME}});
+  if(peer){ try{peer.destroy();}catch(e){} peer=null; }
+  isHost=false; role='p2'; isSpectator=false;
+  showConnStatus('⏳ CONECTANDO À SALA...','');
+
+  const guestId='g'+Date.now().toString(36);
+  initPeer(guestId, ()=>{
+    showConnStatus('⏳ ESTABELECENDO CONEXÃO...','');
+    try {
+      conn = peer.connect(pid, {reliable:true, metadata:{type:'player', name:ME}, serialization:'json'});
+    } catch(e) {
+      showConnStatus('❌ ERRO AO CONECTAR: '+e.message,'err');
+      return;
+    }
+
+    let connTimeout = setTimeout(()=>{
+      if(!conn || !conn.open){
+        showConnStatus('❌ TEMPO ESGOTADO — TENTE NOVAMENTE','err');
+        try{conn.close();}catch(e){}
+        conn=null;
+      }
+    }, 20000);
+
     conn.on('open',()=>{
+      clearTimeout(connTimeout);
+      showConnStatus('✅ CONECTADO!','ok');
       g('n1').textContent='▶ '+host.slice(0,12);
       g('n2').textContent=ME.slice(0,12)+' ◀';
       g('mbadge').textContent='ONLINE VS '+host.toUpperCase().slice(0,10);
       g('ctrl-hint').style.display='';
       setupConn();
       if(fbOk) db.ref('rooms/'+key).update({status:'playing'});
-
     });
-    conn.on('error',()=>{alert('Sala não disponível.');});
+
+    conn.on('error',e=>{
+      clearTimeout(connTimeout);
+      showConnStatus('❌ ERRO: '+e.type,'err');
+      console.error('conn error:',e);
+    });
   });
 }
 
