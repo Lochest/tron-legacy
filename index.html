@@ -695,7 +695,7 @@ function createRoom(){
   const usePw=g('toggle-pw').checked;
   const pwRaw=usePw?g('inp-room-pw').value.trim():'';
   const pwHash=usePw&&pwRaw.length>=1?simpleHash(pwRaw):null;
-  const pid='tron-'+Date.now().toString(36);
+  const pid='tr'+Math.random().toString(36).slice(2,7)+Date.now().toString(36).slice(-4);
 
   g('create-modal').classList.add('hidden');
   g('btn-create-open').disabled=true;
@@ -807,7 +807,7 @@ function joinRoom(key,pid,host,name){
   isHost=false; role='p2'; isSpectator=false;
   showConnStatus('⏳ CONECTANDO À SALA...','');
 
-  const guestId='g'+Date.now().toString(36);
+  const guestId='tg'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);
   initPeer(guestId, ()=>{
     showConnStatus('⏳ ESTABELECENDO CONEXÃO...','');
     try {
@@ -823,7 +823,7 @@ function joinRoom(key,pid,host,name){
         try{conn.close();}catch(e){}
         conn=null;
       }
-    }, 20000);
+    }, 30000);
 
     conn.on('open',()=>{
       clearTimeout(connTimeout);
@@ -866,7 +866,11 @@ function spectateRoom(key,pid,host,name){
 function initPeer(id,cb){
   if(peer){try{peer.destroy();}catch(e){}}
   peer=new Peer(id,{
-    debug:0,
+    host: '0.peerjs.com',
+    port: 443,
+    path: '/',
+    secure: true,
+    debug: 0,
     config:{
       iceServers:[
         {urls:'stun:stun.l.google.com:19302'},
@@ -875,7 +879,6 @@ function initPeer(id,cb){
         {urls:'stun:stun3.l.google.com:19302'},
         {urls:'stun:stun4.l.google.com:19302'},
         {urls:'stun:global.stun.twilio.com:3478'},
-        // TURN server público — essencial para celular/redes móveis
         {
           urls:'turn:openrelay.metered.ca:80',
           username:'openrelayproject',
