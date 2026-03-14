@@ -236,7 +236,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 #diff-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff55;text-align:center;letter-spacing:.1em;min-height:12px;margin-bottom:12px;}
 
 /* ════ GAME ════ */
-#game-wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;}
+#game-wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;z-index:200;background:var(--dark);}
 #hud{display:flex;align-items:center;justify-content:space-between;width:min(800px,98vw);padding:0 4px;}
 .pp{display:flex;flex-direction:column;gap:3px;min-width:130px;}
 .pp.L{align-items:flex-start;}.pp.R{align-items:flex-end;}
@@ -273,7 +273,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .exp{position:absolute;width:8px;height:8px;border-radius:50%;animation:explode .7s ease-out forwards;}
 
 /* LOGIN */
-#s-login{background:var(--dark);}
+#s-login{background:var(--dark);z-index:200;}
 </style>
 </head>
 <body>
@@ -499,10 +499,14 @@ resize();
 window.addEventListener('resize',()=>{resize();if(active)spawn();});
 
 // ══════════════════════════════
+//  INIT — aguarda DOM estar pronto
+// ══════════════════════════════
+window.addEventListener('DOMContentLoaded', function() {
+
+// ══════════════════════════════
 //  LOGIN
 // ══════════════════════════════
 let ME=localStorage.getItem('tron_me')||'';
-if(ME.length>=2) enterLobby();
 
 g('inp-user').onkeydown=e=>{if(e.key==='Enter')doLogin();};
 g('btn-login').onclick=doLogin;
@@ -530,6 +534,7 @@ let roomsListener=null,chatListener=null;
 function enterLobby(){
   g('s-login').classList.add('hidden');
   g('game-wrap').classList.add('hidden');
+  g('game-wrap').style.zIndex='';
   g('lobby-layout').classList.remove('hidden');
   g('disp-user').textContent=ME;
   registerPresence();
@@ -919,9 +924,16 @@ function cleanup(){
 }
 
 function showGame(){
+  // Esconde tudo
   g('lobby-layout').classList.add('hidden');
   g('s-login').classList.add('hidden');
+  // Mostra jogo
   g('game-wrap').classList.remove('hidden');
+  g('game-wrap').style.zIndex='200';
+  // Garante que modais somem
+  g('create-modal').classList.add('hidden');
+  g('pw-modal').classList.add('hidden');
+  g('sp-modal').classList.add('hidden');
 }
 
 // ══════════════════════════════
@@ -1092,8 +1104,10 @@ function endGame(){
 g('btn-go-back').onclick=backToLobby;
 function backToLobby(){
   active=false;state='idle';cleanup();
-  g('ov-go').classList.add('hidden');g('ov-wait').classList.remove('hidden');
+  g('ov-go').classList.add('hidden');
+  g('ov-wait').classList.remove('hidden');
   g('game-wrap').classList.add('hidden');
+  g('game-wrap').style.zIndex='';
   enterLobby();
 }
 function updateHUD(){
@@ -1139,6 +1153,11 @@ function drawBike(p,now){
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 const ago=ts=>{const d=Date.now()-ts;return d<60000?Math.floor(d/1000)+'s':Math.floor(d/60000)+'min';};
 (function loop(now){if(active&&!isSpectator)tick(now);render(now);requestAnimationFrame(loop);})();
+
+// Auto-login se já tiver nome salvo
+if(ME.length>=2) enterLobby();
+
+}); // fim DOMContentLoaded
 </script>
 </body>
 </html>
