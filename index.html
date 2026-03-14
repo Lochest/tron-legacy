@@ -544,15 +544,16 @@ function enterLobby(){
   loadRooms();
   loadPlayers();
   loadChat();
-  // Só anuncia entrada uma vez
-  setTimeout(()=>chatSystem('🔌 '+ME+' entrou na Grid'), 500);
+  // Anuncia entrada apenas uma vez
+  setTimeout(()=>{
+    if(fbOk && ME) db.ref('chat').push({who:'__system__',text:'🔌 '+ME+' entrou na Grid',ts:Date.now()});
+  }, 800);
 }
 
 function leaveLobby(){
   if(presenceRef){ presenceRef.remove(); presenceRef=null; }
   if(roomsListener){ try{db.ref('rooms').off('value',roomsListener);}catch(e){} roomsListener=null; }
-  if(chatListener){ try{db.ref('chat').off('value',chatListener);}catch(e){} chatListener=null; }
-  // Remove presence dos jogadores online
+  if(chatListener){ try{chatListener.off('child_added');}catch(e){} chatListener=null; }
   if(fbOk && ME) db.ref('presence/'+ME.replace(/\s/g,'_')).remove();
 }
 
@@ -589,16 +590,23 @@ function loadPlayers(){
 // ── Chat ──
 function loadChat(){
   if(!fbOk) return;
-  const chatRef=db.ref('chat');
-  // Carrega últimas 40 mensagens
-  chatRef.limitToLast(40).on('value',snap=>{
+  if(chatListener) return; // já carregado
+  // Carrega últimas 30 mensagens de uma vez
+  db.ref('chat').limitToLast(30).once('value', snap=>{
     const data=snap.val()||{};
     const msgs=Object.values(data).sort((a,b)=>a.ts-b.ts);
     g('chat-messages').innerHTML='';
     msgs.forEach(m=>renderChatMsg(m));
     scrollChat();
+    // Depois escuta só mensagens NOVAS (child_added após o último timestamp)
+    const lastTs = msgs.length ? msgs[msgs.length-1].ts : Date.now();
+    const ref = db.ref('chat').orderByChild('ts').startAt(lastTs+1);
+    ref.on('child_added', snap=>{
+      const m=snap.val();
+      if(m) { renderChatMsg(m); scrollChat(); }
+    });
+    chatListener=ref;
   });
-  chatListener=true;
 }
 
 function renderChatMsg(m){
@@ -803,8 +811,14 @@ g('btn-start-sp').onclick=()=>{
   g('mbadge').textContent='VS CPU · '+diff.toUpperCase();
   g('ctrl-hint').style.display='';
   showGame();
-  // Resize após mostrar o canvas para garantir tamanho correto
-  setTimeout(()=>{ resize(); launch(); }, 50);
+  // Força tamanho do canvas após aparecer na tela
+  setTimeout(()=>{
+    const mw=Math.min(window.innerWidth-16,800);
+    const mh=window.innerHeight-170;
+    const sz=Math.floor(Math.min(mw,mh,800)/CELL)*CELL;
+    cv.width=sz; cv.height=sz;
+    launch();
+  }, 100);
 };
 
 // ── Logout ──
