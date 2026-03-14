@@ -695,6 +695,7 @@ function createRoom(){
   const usePw=g('toggle-pw').checked;
   const pwRaw=usePw?g('inp-room-pw').value.trim():'';
   const pwHash=usePw&&pwRaw.length>=1?simpleHash(pwRaw):null;
+  // ID único por sala — permite várias salas simultâneas
   const pid='tr'+Math.random().toString(36).slice(2,7)+Date.now().toString(36).slice(-4);
 
   g('create-modal').classList.add('hidden');
@@ -717,16 +718,21 @@ function createRoom(){
     ref.onDisconnect().remove();
     g('my-room-name-lbl').textContent=roomName;
     g('my-room-waiting').style.display='block';
-    g('st-room').textContent='⏳ AGUARDANDO OPONENTE...';
+    g('st-room').textContent='⏳ INICIANDO CONEXÃO...';
     g('st-room').className='status wait';
 
-    // 2. Inicia PeerJS depois
-    initPeer(pid,()=>console.log('PeerJS pronto:',pid));
+    // 2. Inicia PeerJS e sinaliza no Firebase quando estiver pronto
+    initPeer(pid,()=>{
+      console.log('✅ PeerJS host pronto:', pid);
+      // Marca sala como pronta para receber jogadores
+      db.ref('rooms/'+myKey).update({peerReady:true});
+      g('st-room').textContent='⏳ AGUARDANDO OPONENTE...';
+      g('st-room').className='status wait';
+    });
   }).catch(err=>{
     console.error('Erro ao criar sala:',err);
     g('btn-create-open').disabled=false;
     isHost=false;
-    alert('Erro ao criar sala. Verifique as regras do Firebase.');
   });
 }
 
@@ -805,27 +811,59 @@ setInterval(()=>{if(conn?.open){pingT=Date.now();send({t:'ping'});}},2000);
 function joinRoom(key,pid,host,name){
   if(peer){ try{peer.destroy();}catch(e){} peer=null; }
   isHost=false; role='p2'; isSpectator=false;
-  showConnStatus('⏳ CONECTANDO À SALA...','');
+  showConnStatus('⏳ VERIFICANDO SALA...','');
 
+  // Verifica se o host já está pronto via Firebase
+  db.ref('rooms/'+key).once('value', snap=>{
+    const room = snap.val();
+    if(!room){ showConnStatus('❌ SALA NÃO ENCONTRADA','err'); return; }
+
+    if(!room.peerReady){
+      // Host ainda não está pronto — aguarda até 10s
+      showConnStatus('⏳ AGUARDANDO HOST FICAR PRONTO...','');
+      let attempts=0;
+      const checkReady = setInterval(()=>{
+        attempts++;
+        db.ref('rooms/'+key+'/peerReady').once('value', s=>{
+          if(s.val()===true){
+            clearInterval(checkReady);
+            doConnect(key,pid,host,name);
+          } else if(attempts>=10){
+            clearInterval(checkReady);
+            showConnStatus('❌ HOST NÃO DISPONÍVEL — TENTE NOVAMENTE','err');
+          }
+        });
+      },1000);
+    } else {
+      doConnect(key,pid,host,name);
+    }
+  });
+}
+
+function doConnect(key,pid,host,name){
+  showConnStatus('⏳ CONECTANDO...','');
   const guestId='tg'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);
+
   initPeer(guestId, ()=>{
-    showConnStatus('⏳ ESTABELECENDO CONEXÃO...','');
+    showConnStatus('⏳ ESTABELECENDO CONEXÃO P2P...','');
+    let conn2;
     try {
-      conn = peer.connect(pid, {reliable:true, metadata:{type:'player', name:ME}, serialization:'json'});
+      conn2 = peer.connect(pid, {reliable:true, metadata:{type:'player', name:ME}, serialization:'json'});
+      conn = conn2;
     } catch(e) {
-      showConnStatus('❌ ERRO AO CONECTAR: '+e.message,'err');
+      showConnStatus('❌ ERRO: '+e.message,'err');
       return;
     }
 
-    let connTimeout = setTimeout(()=>{
-      if(!conn || !conn.open){
+    const connTimeout = setTimeout(()=>{
+      if(!conn2.open){
         showConnStatus('❌ TEMPO ESGOTADO — TENTE NOVAMENTE','err');
-        try{conn.close();}catch(e){}
+        try{conn2.close();}catch(e){}
         conn=null;
       }
-    }, 30000);
+    }, 20000);
 
-    conn.on('open',()=>{
+    conn2.on('open',()=>{
       clearTimeout(connTimeout);
       showConnStatus('✅ CONECTADO!','ok');
       g('n1').textContent='▶ '+host.slice(0,12);
@@ -836,9 +874,9 @@ function joinRoom(key,pid,host,name){
       if(fbOk) db.ref('rooms/'+key).update({status:'playing'});
     });
 
-    conn.on('error',e=>{
+    conn2.on('error',e=>{
       clearTimeout(connTimeout);
-      showConnStatus('❌ ERRO: '+e.type,'err');
+      showConnStatus('❌ ERRO DE CONEXÃO: '+e.type,'err');
       console.error('conn error:',e);
     });
   });
@@ -858,41 +896,41 @@ function spectateRoom(key,pid,host,name){
       showGame();g('ov-wait').classList.add('hidden');
     });
     conn.on('data',onMsg);
-    conn.on('close',()=>{alert('Partida encerrou.');backToLobby();});
-    conn.on('error',()=>{alert('Não foi possível conectar.');});
+    conn.on('close',()=>{ showConnStatus('Partida encerrou.',''); setTimeout(backToLobby,2000); });
+    conn.on('error',e=>{ showConnStatus('❌ Não foi possível conectar','err'); setTimeout(backToLobby,2000); });
   });
 }
 
 function initPeer(id,cb){
   if(peer){try{peer.destroy();}catch(e){}}
   peer=new Peer(id,{
-    host: '0.peerjs.com',
-    port: 443,
-    path: '/',
-    secure: true,
-    debug: 0,
+    debug:0,
     config:{
       iceServers:[
         {urls:'stun:stun.l.google.com:19302'},
         {urls:'stun:stun1.l.google.com:19302'},
         {urls:'stun:stun2.l.google.com:19302'},
         {urls:'stun:stun3.l.google.com:19302'},
-        {urls:'stun:stun4.l.google.com:19302'},
-        {urls:'stun:global.stun.twilio.com:3478'},
+        // TURN Metered.ca — tronlegacy dedicado
         {
-          urls:'turn:openrelay.metered.ca:80',
-          username:'openrelayproject',
-          credential:'openrelayproject'
+          urls:'turn:tronlegacy.metered.live:80',
+          username:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M',
+          credential:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M'
         },
         {
-          urls:'turn:openrelay.metered.ca:443',
-          username:'openrelayproject',
-          credential:'openrelayproject'
+          urls:'turn:tronlegacy.metered.live:443',
+          username:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M',
+          credential:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M'
         },
         {
-          urls:'turn:openrelay.metered.ca:443?transport=tcp',
-          username:'openrelayproject',
-          credential:'openrelayproject'
+          urls:'turns:tronlegacy.metered.live:443?transport=tcp',
+          username:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M',
+          credential:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M'
+        },
+        {
+          urls:'turn:tronlegacy.metered.live:80?transport=tcp',
+          username:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M',
+          credential:'1YS6eHkYYu2GQIzp2p7hVnSSqpTw_l51GNS2-MtFNNjMBl7M'
         }
       ]
     }
@@ -933,7 +971,14 @@ function setupConn(){
     }
   });
   conn.on('data',onMsg);
-  conn.on('close',()=>{if(active){alert('Oponente desconectou!');backToLobby();}});
+  conn.on('close',()=>{
+    if(active && state==='on'){
+      // Declara quem ficou como vencedor
+      declaraVencedorPorDesconexao();
+    } else if(active){
+      backToLobby();
+    }
+  });
 }
 
 function send(m){if(conn?.open)conn.send(m);}
@@ -1107,6 +1152,24 @@ function endGame(){
   const n1t=g('n1').textContent.replace('▶ ',''),n2t=g('n2').textContent.replace(' ◀','');
   g('go-sc').textContent=n1t+': '+scores[0].toLocaleString()+' × '+n2t+': '+scores[1].toLocaleString();
 }
+// ── Vitória por desconexão ──
+function declaraVencedorPorDesconexao(){
+  active=false;
+  state='gameover';
+  // Remove sala do Firebase
+  if(myKey&&fbOk){ db.ref('rooms/'+myKey).remove(); myKey=null; }
+  // Mostra tela de game over
+  g('ov-ro').classList.add('hidden');
+  g('ov-cd').classList.add('hidden');
+  g('ov-wait').classList.add('hidden');
+  g('ov-go').classList.remove('hidden');
+  const txt=g('go-txt');
+  txt.style.animation='pulse-c 1.5s infinite';
+  txt.style.color='var(--c)';
+  txt.textContent='🏆 VOCÊ GANHOU!';
+  g('go-sc').textContent='OPONENTE DESCONECTOU DA PARTIDA';
+}
+
 g('btn-go-back').onclick=backToLobby;
 function backToLobby(){
   active=false;state='idle';cleanup();
