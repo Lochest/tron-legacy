@@ -531,7 +531,10 @@ function doLogin(){
 let presenceRef=null,presenceListener=null;
 let roomsListener=null,chatListener=null;
 
+let inLobby=false;
 function enterLobby(){
+  if(inLobby) return; // evita chamada dupla
+  inLobby=true;
   g('s-login').classList.add('hidden');
   g('game-wrap').classList.add('hidden');
   g('game-wrap').style.zIndex='';
@@ -541,13 +544,16 @@ function enterLobby(){
   loadRooms();
   loadPlayers();
   loadChat();
-  chatSystem('🔌 '+ME+' entrou na Grid');
+  // Só anuncia entrada uma vez
+  setTimeout(()=>chatSystem('🔌 '+ME+' entrou na Grid'), 500);
 }
 
 function leaveLobby(){
-  if(presenceRef) presenceRef.remove();
-  if(roomsListener){db.ref('rooms').off('value',roomsListener);roomsListener=null;}
-  if(chatListener){db.ref('chat').off('value',chatListener);chatListener=null;}
+  if(presenceRef){ presenceRef.remove(); presenceRef=null; }
+  if(roomsListener){ try{db.ref('rooms').off('value',roomsListener);}catch(e){} roomsListener=null; }
+  if(chatListener){ try{db.ref('chat').off('value',chatListener);}catch(e){} chatListener=null; }
+  // Remove presence dos jogadores online
+  if(fbOk && ME) db.ref('presence/'+ME.replace(/\s/g,'_')).remove();
 }
 
 // ── Presence (jogadores online) ──
@@ -796,19 +802,23 @@ g('btn-start-sp').onclick=()=>{
   g('n2').textContent=(diff==='easy'?'CPU FÁCIL':diff==='med'?'CPU MÉDIO':'CPU DIFÍCIL')+' ◀';
   g('mbadge').textContent='VS CPU · '+diff.toUpperCase();
   g('ctrl-hint').style.display='';
-  showGame();launch();
+  showGame();
+  // Resize após mostrar o canvas para garantir tamanho correto
+  setTimeout(()=>{ resize(); launch(); }, 50);
 };
 
 // ── Logout ──
 g('btn-logout').onclick=()=>{
-  chatSystem('👋 '+ME+' saiu da Grid');
-  setTimeout(()=>{
-    leaveLobby();cleanup();
-    localStorage.removeItem('tron_me');ME='';
-    g('inp-user').value='';
-    g('lobby-layout').classList.add('hidden');
-    g('s-login').classList.remove('hidden');
-  },300);
+  if(fbOk) db.ref('chat').push({who:'__system__',text:'👋 '+ME+' saiu da Grid',ts:Date.now()});
+  leaveLobby();
+  cleanup();
+  inLobby=false;
+  localStorage.removeItem('tron_me');
+  ME='';
+  g('inp-user').value='';
+  g('lobby-layout').classList.add('hidden');
+  g('game-wrap').classList.add('hidden');
+  g('s-login').classList.remove('hidden');
 };
 
 // ══════════════════════════════
@@ -1108,6 +1118,7 @@ function backToLobby(){
   g('ov-wait').classList.remove('hidden');
   g('game-wrap').classList.add('hidden');
   g('game-wrap').style.zIndex='';
+  inLobby=false; // permite re-entrar no lobby
   enterLobby();
 }
 function updateHUD(){
