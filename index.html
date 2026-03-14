@@ -648,7 +648,7 @@ function renderRooms(open,playing){
     div.className='game-item';
     div.innerHTML=`
       <div class="game-item-name">${esc(r.name)} <span class="badge ${locked?'locked':'open'}">${locked?'🔒 SENHA':'🟢 ABERTA'}</span></div>
-      <div class="game-item-info">HOST: ${esc(r.host)} · ${ago(r.ts)}<br>1 SLOT DE JOGADOR · ATÉ 10 ESPECTADORES</div>
+      <div class="game-item-info">HOST: ${esc(r.host)} · ${ago(r.ts)}<br>2 JOGADORES · ATÉ 10 ESPECTADORES</div>
       <div class="game-item-actions">
         <button class="game-action join">⚔️ ENTRAR</button>
         <button class="game-action watch" style="border-color:#ffffffaa;color:#ffffffcc;" disabled>👁 ASSISTIR</button>
@@ -832,10 +832,35 @@ function spectateRoom(key,pid,host,name){
 
 function initPeer(id,cb){
   if(peer){try{peer.destroy();}catch(e){}}
-  peer=new Peer(id,{debug:0,config:{iceServers:[
-    {urls:'stun:stun.l.google.com:19302'},
-    {urls:'stun:stun1.l.google.com:19302'}
-  ]}});
+  peer=new Peer(id,{
+    debug:0,
+    config:{
+      iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'},
+        {urls:'stun:stun2.l.google.com:19302'},
+        {urls:'stun:stun3.l.google.com:19302'},
+        {urls:'stun:stun4.l.google.com:19302'},
+        {urls:'stun:global.stun.twilio.com:3478'},
+        // TURN server público — essencial para celular/redes móveis
+        {
+          urls:'turn:openrelay.metered.ca:80',
+          username:'openrelayproject',
+          credential:'openrelayproject'
+        },
+        {
+          urls:'turn:openrelay.metered.ca:443',
+          username:'openrelayproject',
+          credential:'openrelayproject'
+        },
+        {
+          urls:'turn:openrelay.metered.ca:443?transport=tcp',
+          username:'openrelayproject',
+          credential:'openrelayproject'
+        }
+      ]
+    }
+  });
   peer.on('open',cb||function(){});
   peer.on('connection',c=>{
     if(isHost){
@@ -845,7 +870,15 @@ function initPeer(id,cb){
       } else {conn=c;setupConn();}
     }
   });
-  peer.on('error',e=>console.error('Peer:',e.type));
+  peer.on('error',e=>{
+    console.error('Peer error:',e.type,e);
+    if(e.type==='unavailable-id'){
+      // ID já em uso — tenta com novo ID
+      const newId=id+'-'+Math.random().toString(36).slice(2,6);
+      console.log('Tentando novo ID:',newId);
+      initPeer(newId,cb);
+    }
+  });
 }
 
 function setupConn(){
