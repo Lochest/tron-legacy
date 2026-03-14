@@ -223,17 +223,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .pw-card::before{top:-2px;left:-2px;border-width:2px 0 0 2px;}
 .pw-card::after{bottom:-2px;right:-2px;border-width:0 2px 2px 0;}
 
-/* ════ SP MODAL ════ */
-#sp-modal{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:600;display:flex;align-items:center;justify-content:center;}
-#sp-modal.hidden{display:none;}
 
-.diff-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
-.dbtn{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;letter-spacing:.1em;padding:10px 0;border:1.5px solid var(--border);background:transparent;color:#ffffff44;cursor:pointer;text-transform:uppercase;transition:all .15s;}
-.dbtn:hover,.dbtn:focus{border-color:var(--c2);color:var(--c2);outline:none;}
-.dbtn.de{border-color:var(--g);color:var(--g);text-shadow:var(--gg);}
-.dbtn.dm{border-color:var(--o2);color:var(--o2);}
-.dbtn.dh{border-color:var(--o);color:var(--o);text-shadow:var(--go);}
-#diff-info{font-family:'Share Tech Mono',monospace;font-size:8px;color:#ffffff55;text-align:center;letter-spacing:.1em;min-height:12px;margin-bottom:12px;}
 
 /* ════ GAME ════ */
 #game-wrap{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;z-index:200;background:var(--dark);}
@@ -356,7 +346,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- FOOTER -->
   <div id="lobby-footer">
     <button class="footer-btn play" id="btn-create-open">+ CRIAR SALA</button>
-    <button class="footer-btn cpu" id="btn-go-sp">🤖 VS COMPUTADOR</button>
+    
     <div id="footer-status">CONECTADO AO GRID</div>
   </div>
 
@@ -396,24 +386,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
       <button class="btn o sm" id="pw-confirm" style="margin:0;">CONFIRMAR</button>
     </div>
     <div class="status" id="pw-status"></div>
-  </div>
-</div>
-
-<!-- ════ SP MODAL ════ -->
-<div id="sp-modal" class="hidden">
-  <div class="modal-card">
-    <div class="modal-title" style="color:var(--o);text-shadow:var(--go);">🤖 VS COMPUTADOR</div>
-    <div class="stitle">DIFICULDADE</div>
-    <div class="diff-row">
-      <button class="dbtn" id="d-easy" onclick="setDiff('easy')">FÁCIL</button>
-      <button class="dbtn" id="d-med"  onclick="setDiff('med')">MÉDIO</button>
-      <button class="dbtn" id="d-hard" onclick="setDiff('hard')">DIFÍCIL</button>
-    </div>
-    <div id="diff-info"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-      <button class="btn ghost sm" id="btn-cancel-sp" style="margin:0;">CANCELAR</button>
-      <button class="btn o sm" id="btn-start-sp" style="margin:0;">▶ JOGAR</button>
-    </div>
   </div>
 </div>
 
@@ -801,25 +773,9 @@ g('pw-input').onkeydown=e=>{if(e.key==='Enter')g('pw-confirm').click();};
 function simpleHash(s){let h=0;for(let i=0;i<s.length;i++)h=((h<<5)-h)+s.charCodeAt(i)|0;return String(h>>>0);}
 
 // ── SP Modal ──
-g('btn-go-sp').onclick=()=>{g('sp-modal').classList.remove('hidden');setDiff('med');};
-g('btn-cancel-sp').onclick=()=>g('sp-modal').classList.add('hidden');
-g('btn-start-sp').onclick=()=>{
-  g('sp-modal').classList.add('hidden');
-  mode='sp';role='p1';isSpectator=false;
-  g('n1').textContent='▶ '+ME.slice(0,12);
-  g('n2').textContent=(diff==='easy'?'CPU FÁCIL':diff==='med'?'CPU MÉDIO':'CPU DIFÍCIL')+' ◀';
-  g('mbadge').textContent='VS CPU · '+diff.toUpperCase();
-  g('ctrl-hint').style.display='';
-  showGame();
-  // Força tamanho do canvas após aparecer na tela
-  setTimeout(()=>{
-    const mw=Math.min(window.innerWidth-16,800);
-    const mh=window.innerHeight-170;
-    const sz=Math.floor(Math.min(mw,mh,800)/CELL)*CELL;
-    cv.width=sz; cv.height=sz;
-    launch();
-  }, 100);
-};
+
+
+
 
 // ── Logout ──
 g('btn-logout').onclick=()=>{
@@ -957,7 +913,6 @@ function showGame(){
   // Garante que modais somem
   g('create-modal').classList.add('hidden');
   g('pw-modal').classList.add('hidden');
-  g('sp-modal').classList.add('hidden');
 }
 
 // ══════════════════════════════
@@ -966,19 +921,9 @@ function showGame(){
 let active=false,state='idle',round=1,scores=[0,0],lives=[3,3],lastT=0;
 let p1=null,p2=null,grid={};
 let myDir={dx:1,dy:0},opDir={dx:-1,dy:0};
-let cdI=null,aiT=0;
-let diff='med';
-const DMAP={
-  easy:{tick:170,look:1,agg:.08,miss:.35,label:'CPU LENTA — FÁCIL DE ENGANAR'},
-  med: {tick:100,look:3,agg:.4, miss:.12,label:'CPU NORMAL — EQUILIBRADA'},
-  hard:{tick:65, look:7,agg:.85,miss:.02,label:'CPU EXPERT — RÁPIDA E AGRESSIVA'}
-};
-function setDiff(d){
-  diff=d;
-  ['easy','med','hard'].forEach(x=>g('d-'+x).className='dbtn');
-  g('d-'+d).className='dbtn '+(d==='easy'?'de':d==='med'?'dm':'dh');
-  g('diff-info').textContent=DMAP[d].label;
-}
+let cdI=null;
+
+
 
 function launch(){active=true;scores=[0,0];lives=[3,3];round=1;updateHUD();nextRound();}
 
@@ -1000,7 +945,7 @@ function nextRound(){
   cdI=setInterval(()=>{
     cd--;g('cdn').textContent=cd>0?cd:'GO!';
     if(cd<=0){clearInterval(cdI);setTimeout(()=>{g('ov-cd').classList.add('hidden');state='on';lastT=aiT=performance.now();},350);}
-  },mode==='sp'?750:900);
+  },900);
 }
 
 const keys={};
@@ -1025,11 +970,7 @@ function readIn(){
 
 function tick(now){
   if(isSpectator||state!=='on')return;
-  if(mode==='sp'){
-    if(now-lastT>=TICK){lastT=now;readIn();move(p1,myDir,0);col();}
-    const dt=DMAP[diff];
-    if(now-aiT>=dt.tick){aiT=now;opDir=aiCalc(p2,dt);move(p2,opDir,1);col();}
-  } else {
+  {
     if(now-lastT<TICK)return;lastT=now;readIn();
     move(p1,role==='p1'?myDir:opDir,0);
     move(p2,role==='p2'?myDir:opDir,1);
@@ -1062,30 +1003,7 @@ function chk(p,i){
   if(p.x<0||p.x>=C||p.y<0||p.y>=R){p.alive=false;return;}
   if(grid[gk(p.x,p.y)]!==undefined)p.alive=false;
 }
-function aiCalc(p,dt){
-  if(!p.alive)return opDir;
-  const all=[{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
-  const valid=all.filter(d=>!(d.dx===-p.dx&&d.dy===-p.dy));
-  const scored=valid.map(d=>{
-    const nx=p.x+d.dx,ny=p.y+d.dy;
-    if(!free(nx,ny))return{d,s:-999};
-    let s=0,cx=nx,cy=ny,cdx=d.dx,cdy=d.dy;
-    for(let i=0;i<dt.look;i++){
-      if(free(cx+cdx,cy+cdy)){s+=10;cx+=cdx;cy+=cdy;}
-      else{const t=[{dx:-cdy,dy:cdx},{dx:cdy,dy:-cdx}].find(t=>free(cx+t.dx,cy+t.dy));
-        if(t){s+=4;cdx=t.dx;cdy=t.dy;}else break;}
-    }
-    s+=dt.agg*(50-Math.abs(nx-p1.x)-Math.abs(ny-p1.y));
-    if(Math.random()<dt.miss)s-=30;
-    return{d,s};
-  });
-  scored.sort((a,b)=>b.s-a.s);
-  return scored[0]?.s>-900?scored[0].d:opDir;
-}
-function free(x,y){
-  const C=cv.width/CELL,R=cv.height/CELL;
-  return x>=0&&x<C&&y>=0&&y<R&&grid[gk(x,y)]===undefined;
-}
+
 function boom(px,py,color){
   const wb=g('cw').getBoundingClientRect(),cb2=cv.getBoundingClientRect();
   for(let i=0;i<14;i++){
@@ -1111,7 +1029,7 @@ function endRound(w){
   updateHUD();g('ov-ro').classList.remove('hidden');
   const done=lives[0]<=0||lives[1]<=0||round>=MAX_ROUNDS;
   if(done){setTimeout(endGame,1700);}
-  else{round++;const delay=mode==='sp'?1600:2400;if(mode==='sp'||(isHost&&!isSpectator)){setTimeout(()=>{if(mode==='mp')broadcast({t:'next'});nextRound();},delay);}}
+  else{round++;const delay=2400;if(isHost&&!isSpectator){setTimeout(()=>{if(mode==='mp')broadcast({t:'next'});nextRound();},delay);}}
 }
 function endGame(){
   state='gameover';g('ov-ro').classList.add('hidden');g('ov-go').classList.remove('hidden');
