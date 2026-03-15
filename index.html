@@ -262,6 +262,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 .ovs{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:.18em;color:#aaa;}
 .exp{position:absolute;width:8px;height:8px;border-radius:50%;animation:explode .7s ease-out forwards;}
 
+
 /* LOGIN */
 #s-login{background:var(--dark);z-index:200;}
 </style>
@@ -279,8 +280,41 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <input class="inp" id="inp-user" type="text" placeholder="Seu nome de usuário" maxlength="14" autocomplete="off" spellcheck="false"/>
     <div class="inp-hint">2–14 caracteres · todas as letras aceitas</div>
     <button class="btn" id="btn-login">ENTRAR NA GRID ⚡</button>
+    <button class="btn ghost sm" id="btn-instructions" style="margin-top:-2px;">📖 COMO JOGAR</button>
     <div class="status" id="st-login"></div>
   </div>
+
+<!-- MODAL INSTRUÇÕES -->
+<div id="inst-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:800;display:none;align-items:center;justify-content:center;">
+  <div style="background:#000d1a;border:1px solid #00f5ff;padding:28px 32px;width:min(500px,92vw);position:relative;max-height:90vh;overflow-y:auto;">
+    <div style="position:absolute;top:-2px;left:-2px;width:14px;height:14px;border-top:2px solid #00f5ff;border-left:2px solid #00f5ff;"></div>
+    <div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-bottom:2px solid #00f5ff;border-right:2px solid #00f5ff;"></div>
+    <div style="font-size:13px;font-weight:900;letter-spacing:.2em;color:#00f5ff;text-shadow:0 0 10px #00f5ff;text-align:center;margin-bottom:18px;">📖 COMO JOGAR</div>
+    <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:#ffffffcc;line-height:2.2;letter-spacing:.08em;">
+      <div style="color:#00f5ff;font-size:10px;margin-bottom:6px;letter-spacing:.15em;">⚡ BEM-VINDO AO TRON LEGACY!</div>
+      <div style="color:#ffffff88;font-size:8px;margin-bottom:14px;">Este é um jogo em desenvolvimento. Divirta-se!</div>
+
+      <div style="color:#00ff88;margin-bottom:4px;letter-spacing:.15em;">🎮 CONTROLES</div>
+      <div>• <span style="color:#00f5ff;">W A S D</span> ou <span style="color:#00f5ff;">↑ ↓ ← →</span> — Mover a moto</div>
+      <div>• <span style="color:#ff9900;">ESPAÇO</span> — Liga/Desliga o rastro de luz</div>
+      <div>• Segurar a tecla de direção — <span style="color:#ff9900;">aumenta a velocidade progressivamente</span></div>
+
+      <div style="color:#00ff88;margin:14px 0 4px;letter-spacing:.15em;">⚡ RASTRO DE LUZ</div>
+      <div>• O rastro só aparece quando o <span style="color:#ff9900;">ESPAÇO está ativado</span></div>
+      <div>• Cada pedaço do rastro <span style="color:#ff9900;">desaparece com o tempo</span></div>
+      <div>• Colidir no rastro do oponente ou no seu próprio = <span style="color:#ff4444;">ELIMINADO</span></div>
+
+      <div style="color:#00ff88;margin:14px 0 4px;letter-spacing:.15em;">🏆 OBJETIVO</div>
+      <div>• Faça o oponente colidir no seu rastro</div>
+      <div>• Evite colidir nas paredes e rastros</div>
+      <div>• Vence quem sobreviver mais rodadas</div>
+      <div>• <span style="color:#ff9900;">3 vidas · 5 rodadas</span></div>
+
+
+    </div>
+    <button class="btn" id="btn-close-inst" style="margin-top:18px;">FECHAR</button>
+  </div>
+</div>
 </div>
 
 <!-- ════ LOBBY (3 colunas) ════ -->
@@ -346,7 +380,6 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <!-- FOOTER -->
   <div id="lobby-footer">
     <button class="footer-btn play" id="btn-create-open">+ CRIAR SALA</button>
-    
     <div id="footer-status">CONECTADO AO GRID</div>
   </div>
 
@@ -426,7 +459,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div>
   <div id="cb">
-    <div class="ctrl c" id="ctrl-hint"><span class="k">W</span><span class="k">A</span><span class="k">S</span><span class="k">D</span> ou <span class="k">↑</span><span class="k">↓</span><span class="k">←</span><span class="k">→</span></div>
+    <div class="ctrl c" id="ctrl-hint"><span style="color:#ffffff66;">▪ RASTRO DESLIGADO</span> &nbsp; <span class="k">ESPAÇO</span> ligar</div>
     <div id="pi"></div>
     <div id="mbadge"></div>
   </div>
@@ -995,6 +1028,8 @@ function onMsg(m){
     showGame();g('ov-wait').classList.add('hidden');launch();
   }
   else if(m.t==='dir'){opDir=m.d;}
+  else if(m.t==='trail'){opTrailEnabled=m.v;}
+  else if(m.t==='speed'){opSpeed=m.s;}
   else if(m.t==='next'){nextRound();}
   else if(m.t==='spec-init'){g('n1').textContent=m.n1;g('n2').textContent=m.n2;g('ov-wait').classList.add('hidden');}
   else if(m.t==='spec-state'&&isSpectator){grid=m.grid||{};if(m.p1)p1={...m.p1};if(m.p2)p2={...m.p2};scores=m.scores||[0,0];lives=m.lives||[3,3];updateHUD();state=m.state||'on';}
@@ -1032,18 +1067,45 @@ let p1=null,p2=null,grid={};
 let myDir={dx:1,dy:0},opDir={dx:-1,dy:0};
 let cdI=null;
 
+// ── Mecânicas novas ──
+const TRAIL_LIFE = 4000;    // ms que cada pedaço do rastro dura
+const BASE_TICK  = 120;     // velocidade base (ms por movimento)
+const MIN_TICK   = 45;      // velocidade máxima com boost
+const BOOST_ACCEL= 6;       // quanto reduz por tick ao segurar
+let trailEnabled = false;   // toggle do rastro (ESPAÇO)
+let opTrailEnabled = false; // rastro do oponente
+let mySpeed  = BASE_TICK;   // velocidade atual do jogador
+let opSpeed  = BASE_TICK;   // velocidade atual do oponente
+let myLastT  = 0;
+let opLastT  = 0;
+let trailTimers = {};       // {gridKey: timeoutId} para sumir rastro
+let holdTime = 0;           // tempo segurando tecla de direção
 
+);
+  const b=g('d-'+d); if(b) b.className='dbtn '+(d==='easy'?'de':d==='med'?'dm':'dh');
+}
 
 function launch(){active=true;scores=[0,0];lives=[3,3];round=1;updateHUD();nextRound();}
 
 function spawn(){
-  const C=cv.width/CELL,R=cv.height/CELL;grid={};
+  const C=cv.width/CELL,R=cv.height/CELL;
+  // Limpa timers dos rastros anteriores
+  Object.values(trailTimers).forEach(t=>clearTimeout(t));
+  trailTimers={};
+  grid={};
+  trailEnabled=false;
+  opTrailEnabled=false;
+  mySpeed=BASE_TICK;
+  opSpeed=BASE_TICK;
+  holdTime=0;
+  myLastT=0;
+  opLastT=0;
   p1={x:Math.floor(C*.25),y:Math.floor(R*.5),dx:1,dy:0,color:P1C,trail:P1T,glow:P1G,alive:true};
   p2={x:Math.floor(C*.75),y:Math.floor(R*.5),dx:-1,dy:0,color:P2C,trail:P2T,glow:P2G,alive:true};
 }
 
 function nextRound(){
-  if(isSpectator)return;
+  if(isSpectator) return;
   spawn();
   myDir=role==='p1'?{dx:1,dy:0}:{dx:-1,dy:0};
   opDir=role==='p1'?{dx:-1,dy:0}:{dx:1,dy:0};
@@ -1053,7 +1115,7 @@ function nextRound(){
   clearInterval(cdI);
   cdI=setInterval(()=>{
     cd--;g('cdn').textContent=cd>0?cd:'GO!';
-    if(cd<=0){clearInterval(cdI);setTimeout(()=>{g('ov-cd').classList.add('hidden');state='on';lastT=aiT=performance.now();},350);}
+    if(cd<=0){clearInterval(cdI);setTimeout(()=>{g('ov-cd').classList.add('hidden');state='on';myLastT=opLastT=performance.now();},350);}
   },900);
 }
 
@@ -1061,11 +1123,20 @@ const keys={};
 window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   const tag=document.activeElement?.tagName;
-  if(tag!=='INPUT'&&tag!=='TEXTAREA'&&!isSpectator&&
-    ['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))
+  const isTyping=(tag==='INPUT'||tag==='TEXTAREA');
+  if(!isTyping&&!isSpectator&&
+    ['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))
     e.preventDefault();
+  // Toggle rastro com ESPAÇO
+  if(e.code==='Space'&&!isTyping&&!isSpectator&&state==='on'){
+    trailEnabled=!trailEnabled;
+    // Envia estado do rastro para oponente
+    if(mode==='mp') send({t:'trail',v:trailEnabled});
+    // Feedback visual no HUD
+    showTrailStatus();
+  }
 });
-window.addEventListener('keyup',e=>keys[e.code]=false);
+window.addEventListener('keyup',e=>{ keys[e.code]=false; });
 
 function readIn(){
   if(isSpectator)return;
@@ -1074,26 +1145,72 @@ function readIn(){
   if((keys['KeyS']||keys['ArrowDown']) &&me.dy!==-1)nd={dx:0,dy:1};
   if((keys['KeyA']||keys['ArrowLeft']) &&me.dx!==1) nd={dx:-1,dy:0};
   if((keys['KeyD']||keys['ArrowRight'])&&me.dx!==-1)nd={dx:1,dy:0};
-  if(nd){myDir=nd;if(mode==='mp')send({t:'dir',d:nd});}
+  if(nd){
+    myDir=nd;
+    if(mode==='mp') send({t:'dir',d:nd});
+  }
+  // Envia velocidade atual para oponente sincronizar
+  if(mode==='mp') send({t:'speed',s:mySpeed});
 }
 
 function tick(now){
   if(isSpectator||state!=='on')return;
+
+  // Boost progressivo do jogador
+  const anyKey = keys['KeyW']||keys['KeyS']||keys['KeyA']||keys['KeyD']||
+                 keys['ArrowUp']||keys['ArrowDown']||keys['ArrowLeft']||keys['ArrowRight'];
+  if(anyKey){ holdTime+=16; mySpeed=Math.max(MIN_TICK, BASE_TICK-(holdTime/1000)*80); }
+  else      { holdTime=0;   mySpeed=BASE_TICK; }
+
   {
-    if(now-lastT<TICK)return;lastT=now;readIn();
-    move(p1,role==='p1'?myDir:opDir,0);
-    move(p2,role==='p2'?myDir:opDir,1);
-    col();
+    if(now-myLastT >= mySpeed){
+      myLastT=now; readIn();
+      const me = role==='p1'?p1:p2;
+      moveNew(me, myDir, role==='p1'?0:1, trailEnabled);
+      col();
+    }
+    if(now-opLastT >= opSpeed){
+      opLastT=now;
+      const op = role==='p1'?p2:p1;
+      moveNew(op, opDir, role==='p1'?1:0, opTrailEnabled);
+      col();
+    }
     if(isHost&&specConns.length>0) broadcast({t:'spec-state',grid,p1:{...p1},p2:{...p2},scores,lives,state});
   }
 }
 
+// ── IA ──
+function isFree(x,y){
+  const C=cv.width/CELL,R=cv.height/CELL;
+  return x>=0&&x<C&&y>=0&&y<R&&grid[gk(x,y)]===undefined;
+}
+
+
 const gk=(x,y)=>x+','+y;
-function move(p,d,i){
+
+function showTrailStatus(){
+  const el=g('ctrl-hint');
+  if(!el) return;
+  if(trailEnabled){
+    el.innerHTML='<span style="color:#00ff88;text-shadow:0 0 8px #00ff88;">⚡ RASTRO ATIVO</span> &nbsp; <span class="k">ESPAÇO</span> desligar';
+  } else {
+    el.innerHTML='<span style="color:#ffffff66;">▪ RASTRO DESLIGADO</span> &nbsp; <span class="k">ESPAÇO</span> ligar';
+  }
+}
+
+function moveNew(p,d,i,trailOn){
   if(!p.alive)return;
   p.dx=d.dx;p.dy=d.dy;
   const k=gk(p.x,p.y);
-  if(grid[k]===undefined)grid[k]=i;
+  if(trailOn && grid[k]===undefined){
+    grid[k]=i;
+    // Timer para sumir o rastro após TRAIL_LIFE ms
+    if(trailTimers[k]) clearTimeout(trailTimers[k]);
+    trailTimers[k]=setTimeout(()=>{
+      delete grid[k];
+      delete trailTimers[k];
+    }, TRAIL_LIFE);
+  }
   p.x+=p.dx;p.y+=p.dy;scores[i]++;
 }
 function col(){
@@ -1138,7 +1255,7 @@ function endRound(w){
   updateHUD();g('ov-ro').classList.remove('hidden');
   const done=lives[0]<=0||lives[1]<=0||round>=MAX_ROUNDS;
   if(done){setTimeout(endGame,1700);}
-  else{round++;const delay=2400;if(isHost&&!isSpectator){setTimeout(()=>{if(mode==='mp')broadcast({t:'next'});nextRound();},delay);}}
+  else{round++;const delay=2400;if(isHost&&!isSpectator){setTimeout(()=>{broadcast({t:'next'});nextRound();},delay);}}
 }
 function endGame(){
   state='gameover';g('ov-ro').classList.add('hidden');g('ov-go').classList.remove('hidden');
@@ -1216,9 +1333,22 @@ function drawTrails(c){
 function drawBike(c,p,now){
   if(!p.alive)return;
   const px=p.x*CELL,py=p.y*CELL,pulse=Math.sin(now*.012)*.3+.7;
-  c.shadowColor=p.glow;c.shadowBlur=16*pulse;
+  // Rastro ativo? Brilho maior
+  const isMe=(role==='p1'&&p===p1)||(role==='p2'&&p===p2);
+  const tOn=isMe?trailEnabled:opTrailEnabled;
+  c.shadowColor=p.glow;
+  c.shadowBlur=tOn?28*pulse:12*pulse;
   c.fillStyle=p.color;c.fillRect(px+1,py+1,CELL-2,CELL-2);
   c.fillStyle='#fff';c.fillRect(px+3,py+3,CELL-6,CELL-6);
+  // Anel externo quando rastro ativo
+  if(tOn){
+    c.shadowBlur=0;
+    c.strokeStyle=p.color;
+    c.lineWidth=1;
+    c.globalAlpha=0.5+pulse*0.5;
+    c.strokeRect(px-1,py-1,CELL+2,CELL+2);
+    c.globalAlpha=1;
+  }
   c.shadowBlur=0;c.fillStyle=p.color;const h=CELL/2;
   if(p.dx===1)c.fillRect(px+CELL-2,py+h-1,3,2);
   if(p.dx===-1)c.fillRect(px-1,py+h-1,3,2);
@@ -1228,6 +1358,15 @@ function drawBike(c,p,now){
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 const ago=ts=>{const d=Date.now()-ts;return d<60000?Math.floor(d/1000)+'s':Math.floor(d/60000)+'min';};
 (function loop(now){if(active&&!isSpectator)tick(now);render(now);requestAnimationFrame(loop);})();
+
+
+// Botão instruções
+g('btn-instructions').onclick=()=>{
+  g('inst-modal').style.display='flex';
+};
+g('btn-close-inst').onclick=()=>{
+  g('inst-modal').style.display='none';
+};
 
 // Auto-login se já tiver nome salvo
 if(ME.length>=2) enterLobby();
