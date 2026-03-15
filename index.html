@@ -278,7 +278,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   <div class="card">
     <div class="stitle">▸ IDENTIFICAÇÃO DO PROGRAMA</div>
     <input class="inp" id="inp-user" type="text" placeholder="Seu nome de usuário" maxlength="14" autocomplete="off" spellcheck="false"/>
-    <div class="inp-hint">2–14 caracteres · todas as letras aceitas</div>
+    <div class="inp-hint">Digite seu nome e clique ENTRAR</div>
     <button class="btn" id="btn-login" onclick="doLogin()">ENTRAR NA GRID ⚡</button>
     <button class="btn ghost sm" id="btn-instructions" style="margin-top:-2px;" onclick="document.getElementById('inst-modal').classList.remove('hidden');document.getElementById('inst-modal').style.display='flex';">📖 COMO JOGAR</button>
     <div class="status" id="st-login"></div>
@@ -517,15 +517,14 @@ g('inp-user').onkeydown=e=>{if(e.key==='Enter')doLogin();};
 g('btn-login').onclick=doLogin;
 function doLogin(){
   const raw=g('inp-user').value.trim();
-  const clean=raw.replace(/[.#$\[\]/]/g,'').trim();
-  if(clean.length<2){
-    g('st-login').textContent='⚠️ MÍNIMO 2 CARACTERES';
+  if(!raw || raw.length<1){
+    g('st-login').textContent='⚠️ DIGITE SEU NOME';
     g('st-login').className='status err';
     g('inp-user').style.borderColor='#ff4444';
-    setTimeout(()=>g('inp-user').style.borderColor='',1500);
+    setTimeout(()=>{ g('inp-user').style.borderColor=''; g('st-login').textContent=''; },1500);
     return;
   }
-  ME=clean.slice(0,14);
+  ME=raw.slice(0,14);
   localStorage.setItem('tron_me',ME);
   enterLobby();
 }
