@@ -97,7 +97,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
   gap:0;
   z-index:100;
 }
-#lobby-layout.hidden{display:none!important;}
+#lobby-layout.hidden{display:none!important;pointer-events:none!important;}
 
 /* Header */
 #lobby-header{
@@ -264,7 +264,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 
 /* LOGIN */
-#s-login{background:var(--dark);z-index:200;}
+#s-login{background:var(--dark);z-index:300;}
 </style>
 </head>
 <body>
@@ -279,13 +279,13 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     <div class="stitle">▸ IDENTIFICAÇÃO DO PROGRAMA</div>
     <input class="inp" id="inp-user" type="text" placeholder="Seu nome de usuário" maxlength="14" autocomplete="off" spellcheck="false"/>
     <div class="inp-hint">2–14 caracteres · todas as letras aceitas</div>
-    <button class="btn" id="btn-login">ENTRAR NA GRID ⚡</button>
-    <button class="btn ghost sm" id="btn-instructions" style="margin-top:-2px;">📖 COMO JOGAR</button>
+    <button class="btn" id="btn-login" onclick="doLogin()">ENTRAR NA GRID ⚡</button>
+    <button class="btn ghost sm" id="btn-instructions" style="margin-top:-2px;" onclick="document.getElementById('inst-modal').classList.remove('hidden');document.getElementById('inst-modal').style.display='flex';">📖 COMO JOGAR</button>
     <div class="status" id="st-login"></div>
   </div>
 
 <!-- MODAL INSTRUÇÕES -->
-<div id="inst-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:800;display:none;align-items:center;justify-content:center;">
+<div id="inst-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:800;align-items:center;justify-content:center;">
   <div style="background:#000d1a;border:1px solid #00f5ff;padding:28px 32px;width:min(500px,92vw);position:relative;max-height:90vh;overflow-y:auto;">
     <div style="position:absolute;top:-2px;left:-2px;width:14px;height:14px;border-top:2px solid #00f5ff;border-left:2px solid #00f5ff;"></div>
     <div style="position:absolute;bottom:-2px;right:-2px;width:14px;height:14px;border-bottom:2px solid #00f5ff;border-right:2px solid #00f5ff;"></div>
@@ -312,7 +312,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 
     </div>
-    <button class="btn" id="btn-close-inst" style="margin-top:18px;">FECHAR</button>
+    <button class="btn" id="btn-close-inst" style="margin-top:18px;" onclick="document.getElementById('inst-modal').classList.add('hidden');document.getElementById('inst-modal').style.display='none';">FECHAR</button>
   </div>
 </div>
 </div>
@@ -1362,10 +1362,14 @@ const ago=ts=>{const d=Date.now()-ts;return d<60000?Math.floor(d/1000)+'s':Math.
 
 // Botão instruções
 g('btn-instructions').onclick=()=>{
-  g('inst-modal').style.display='flex';
+  const m=g('inst-modal');
+  m.classList.remove('hidden');
+  m.style.display='flex';
 };
 g('btn-close-inst').onclick=()=>{
-  g('inst-modal').style.display='none';
+  const m=g('inst-modal');
+  m.classList.add('hidden');
+  m.style.display='none';
 };
 
 // Auto-login se já tiver nome salvo
